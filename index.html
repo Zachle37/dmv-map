@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='utf-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <title>WMATA Metro & Bus Routes</title>
+  <link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.3/dist/leaflet.css' />
+  <style>
+    body { margin:0; padding:0; font-family: Arial, sans-serif; }
+    #map { height: 100vh; width: 100%; }
+  </style>
+</head>
+<body>
+  <div id='map'></div>
+  <script src='https://unpkg.com/leaflet@1.9.3/dist/leaflet.js'></script>
+  <script>
+    const map = L.map('map').setView([38.9, -77.04], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    const routes = {
+      BLUE: { file: 'data/BLUE.geojson', name: 'Blue Line', color: '#0076C0' },
+      ORANGE: { file: 'data/ORANGE.geojson', name: 'Orange Line', color: '#F7941E' },
+      SILVER: { file: 'data/SILVER.geojson', name: 'Silver Line', color: '#A1A2A1' },
+      GREEN: { file: 'data/GREEN.geojson', name: 'Green Line', color: '#00A94F' },
+      RED: { file: 'data/RED.geojson', name: 'Red Line', color: '#E31837' },
+      YELLOW: { file: 'data/YELLOW.geojson', name: 'Yellow Line', color: '#FFD200' },
+      D96: { file: 'data/D96.geojson', name: 'D96 Massachusetts Ave–Bethesda', color: '#00A3E0' },
+      M22: { file: 'data/M22.geojson', name: 'M22 Olney–Bethesda', color: '#00A3E0' },
+      M42: { file: 'data/M42.geojson', name: 'M42 Randolph Rd–College Park', color: '#9063CD' },
+      M70: { file: 'data/M70.geojson', name: 'M70 East West Hwy', color: '#C8102E' },
+      M82: { file: 'data/M82.geojson', name: 'M82 River Rd–Falls Rd', color: '#00A3E0' },
+      D70: { file: 'data/D70.geojson', name: 'D70 Connecticut Ave–Chevy Chase', color: '#003594' }
+    };
+    const overlays = {};
+    const routeLayers = {};
+    let bounds = null;
+    function loadRoute(id, info) {
+      fetch(info.file).then(r => r.json()).then(data => {
+        const layer = L.geoJSON(data, {
+          style: function (feature) {
+            if (feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString') {
+              return { color: info.color, weight: 5, opacity: 0.8 };
+            }
+          },
+          pointToLayer: function(feature, latlng) {
+            return L.circleMarker(latlng, {
+              radius: 3,
+              color: info.color,
+              fillColor: info.color,
+              fillOpacity: 0.8
+            });
+          },
+          onEachFeature: function(feature, layer) {
+            if (feature.geometry.type === 'Point') {
+              const name = feature.properties.stop_name || '';
+              layer.bindPopup(name);
+            } else {
+              layer.bindPopup(info.name);
+            }
+          }
+        });
+        routeLayers[id] = layer;
+        overlays[info.name] = layer;
+        layer.addTo(map);
+        if (bounds) {
+          bounds = bounds.extend(layer.getBounds());
+        } else {
+          bounds = layer.getBounds();
+        }
+        if (Object.keys(routeLayers).length === Object.keys(routes).length) {
+          map.fitBounds(bounds.pad(0.05));
+        }
+      });
+    }
+    for (const [id, info] of Object.entries(routes)) {
+      loadRoute(id, info);
+    }
+    setTimeout(() => {
+      L.control.layers(null, overlays, { collapsed: false }).addTo(map);
+    }, 1000);
+  </script>
+</body>
+</html>
